@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  username     String?  @unique
+  email        String   @unique
+  passwordHash String
+  role         String   @default("user") // "admin" | "user"
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  notes         Note[]
+  categories    Category[]
+  trashedItems  TrashedItem[] @relation("TrashedByUser")
+  restoredItems TrashedItem[] @relation("RestoredByUser")
+
+  @@map("users")
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  colorHex  String   @default("#6366f1")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  noteCategories NoteCategory[]
+
+  @@map("categories")
+}
+
+model Note {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String   // "note" | "ssh" | "login"
+  title     String
+  status    String   @default("active") // "active" | "invalid"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  fields         NoteField[]
+  noteCategories NoteCategory[]
+  trashedItem    TrashedItem?
+
+  @@map("notes")
+}
+
+model NoteField {
+  id             String  @id @default(cuid())
+  noteId         String
+  note           Note    @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  fieldKey       String
+  fieldValue     String  // encrypted if isSensitive
+  isSensitive    Boolean @default(false)
+  sortOrder      Int     @default(0)
+
+  @@map("note_fields")
+}
+
+model NoteCategory {
+  noteId     String
+  categoryId String
+  note       Note     @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@id([noteId, categoryId])
+  @@map("note_categories")
+}
+
+model TrashedItem {
+  id           String    @id @default(cuid())
+  noteId       String    @unique
+  note         Note      @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  deletedById  String
+  deletedBy    User      @relation("TrashedByUser", fields: [deletedById], references: [id])
+  deletedAt    DateTime  @default(now())
+  expiresAt    DateTime
+  restoredAt   DateTime?
+  restoredById String?
+  restoredBy   User?     @relation("RestoredByUser", fields: [restoredById], references: [id])
+
+  @@map("trashed_items")
+}
