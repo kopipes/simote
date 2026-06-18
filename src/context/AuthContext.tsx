@@ -46,11 +46,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refresh().finally(() => setLoading(false))
   }, [refresh])
 
+  // Throttle: ignore activity events for 2 seconds after first one
+  const throttleRef = useRef(false)
+
   // Inactivity auto-logout
   const resetInactivityTimer = useCallback(() => {
+    // Throttle: skip if already handled within last 2 seconds
+    if (throttleRef.current) return
+    throttleRef.current = true
+    setTimeout(() => { throttleRef.current = false }, 2000)
+
     if (inactivityTimer.current) clearTimeout(inactivityTimer.current)
     inactivityTimer.current = setTimeout(async () => {
-      // Only logout if user is logged in
       try {
         await api.logout()
       } catch {}
