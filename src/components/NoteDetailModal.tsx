@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { X, Terminal, KeyRound, FileText, MoreVertical, Trash2, RotateCcw, Pencil, Zap } from 'lucide-react'
+import { X, MoreVertical, Trash2, RotateCcw, Pencil } from 'lucide-react'
 import { Note } from '@/lib/api'
-import { SensitiveField, PlainField } from './SensitiveField'
 import { CopyButton } from './CopyButton'
+import { NOTE_TYPE_CONFIG, getNoteField } from '@/lib/constants'
 
 interface NoteDetailModalProps {
   note: Note | null
@@ -16,12 +16,7 @@ interface NoteDetailModalProps {
   isTrashed?: boolean
 }
 
-const TYPE_CONFIG = {
-  note: { label: 'Catatan', icon: FileText, color: 'bg-blue-100 text-blue-600' },
-  ssh: { label: 'SSH', icon: Terminal, color: 'bg-orange-100 text-orange-600' },
-  login: { label: 'Login', icon: KeyRound, color: 'bg-purple-100 text-purple-600' },
-  api: { label: 'API', icon: Zap, color: 'bg-teal-100 text-teal-600' },
-}
+
 
 export function NoteDetailModal({
   note,
@@ -36,23 +31,23 @@ export function NoteDetailModal({
 
   if (!note) return null
 
-  const config = TYPE_CONFIG[note.type as keyof typeof TYPE_CONFIG] || TYPE_CONFIG.note
+  const config = NOTE_TYPE_CONFIG[note.type] || NOTE_TYPE_CONFIG.note
   const Icon = config.icon
   const isInvalid = note.status === 'invalid'
 
-  const getField = (key: string) => note.fields.find((f) => f.fieldKey === key)?.fieldValue || ''
+  const getField = (key: string) => getNoteField(note.fields, key)
 
   const daysRemaining = note.trashedItem
     ? Math.max(0, Math.ceil((new Date(note.trashedItem.expiresAt).getTime() - Date.now()) / 86400000))
     : null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative w-full sm:w-auto sm:min-w-[32rem] sm:max-w-[90vw] lg:max-w-[70vw] xl:max-w-[60vw] bg-white sm:rounded-2xl rounded-t-2xl shadow-xl max-h-[92vh] flex flex-col">
+      <div className="relative w-full sm:w-auto sm:min-w-[32rem] sm:max-w-[90vw] lg:max-w-[70vw] xl:max-w-[60vw] bg-white rounded-2xl shadow-xl max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="flex items-start gap-3 p-4 border-b border-gray-100">
           <div className={`p-2.5 rounded-xl shrink-0 ${config.color}`}>

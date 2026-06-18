@@ -12,6 +12,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Semua field wajib diisi' }, { status: 400 })
     }
 
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return NextResponse.json({ error: 'Format email tidak valid' }, { status: 400 })
+    }
+
     if (password.length < 8) {
       return NextResponse.json({ error: 'Password minimal 8 karakter' }, { status: 400 })
     }

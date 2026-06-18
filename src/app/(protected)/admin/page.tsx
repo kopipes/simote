@@ -10,6 +10,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog'
 
 interface UserFormData {
   name: string
+  username: string
   email: string
   password: string
   role: string
@@ -17,6 +18,7 @@ interface UserFormData {
 
 interface EditFormData {
   name: string
+  username: string
   email: string
   password: string
   role: string
@@ -31,12 +33,12 @@ export default function AdminPage() {
   const [error, setError] = useState('')
 
   const [createOpen, setCreateOpen] = useState(false)
-  const [createForm, setCreateForm] = useState<UserFormData>({ name: '', email: '', password: '', role: 'user' })
+  const [createForm, setCreateForm] = useState<UserFormData>({ name: '', username: '', email: '', password: '', role: 'user' })
   const [createLoading, setCreateLoading] = useState(false)
   const [createError, setCreateError] = useState('')
 
   const [editUser, setEditUser] = useState<AdminUser | null>(null)
-  const [editForm, setEditForm] = useState<EditFormData>({ name: '', email: '', password: '', role: 'user', isActive: true })
+  const [editForm, setEditForm] = useState<EditFormData>({ name: '', username: '', email: '', password: '', role: 'user', isActive: true })
   const [editLoading, setEditLoading] = useState(false)
   const [editError, setEditError] = useState('')
 
@@ -78,9 +80,9 @@ export default function AdminPage() {
     setCreateLoading(true)
     try {
       const { user: newUser } = await api.adminCreateUser(createForm)
-      setUsers((prev) => [...prev, { ...newUser, _count: { notes: 0 }, createdAt: new Date().toISOString() }])
+      setUsers((prev) => [...prev, { ...newUser, _count: { notes: 0 } }])
       setCreateOpen(false)
-      setCreateForm({ name: '', email: '', password: '', role: 'user' })
+      setCreateForm({ name: '', username: '', email: '', password: '', role: 'user' })
     } catch (e) {
       setCreateError(e instanceof Error ? e.message : 'Gagal membuat user')
     } finally {
@@ -90,7 +92,7 @@ export default function AdminPage() {
 
   function openEditUser(u: AdminUser) {
     setEditUser(u)
-    setEditForm({ name: u.name, email: u.email, password: '', role: u.role, isActive: u.isActive ?? true })
+    setEditForm({ name: u.name, username: u.username || '', email: u.email, password: '', role: u.role, isActive: u.isActive ?? true })
     setEditError('')
   }
 
@@ -105,12 +107,13 @@ export default function AdminPage() {
     }
     setEditLoading(true)
     try {
-      const data: { name: string; email: string; role: string; isActive: boolean; password?: string } = {
+      const data: { name: string; username?: string; email: string; role: string; isActive: boolean; password?: string } = {
         name: editForm.name,
         email: editForm.email,
         role: editForm.role,
         isActive: editForm.isActive,
       }
+      if (editForm.username) data.username = editForm.username
       if (editForm.password) data.password = editForm.password
       const { user: updated } = await api.adminUpdateUser(editUser.id, data)
       setUsers((prev) => prev.map((u) => u.id === editUser.id ? { ...u, ...updated } : u))
@@ -123,15 +126,24 @@ export default function AdminPage() {
   }
 
   async function handleToggleActive(u: AdminUser) {
-    const { user: updated } = await api.adminUpdateUser(u.id, { isActive: !u.isActive })
-    setUsers((prev) => prev.map((x) => x.id === u.id ? { ...x, ...updated } : x))
+    try {
+      const { user: updated } = await api.adminUpdateUser(u.id, { isActive: !u.isActive })
+      setUsers((prev) => prev.map((x) => x.id === u.id ? { ...x, ...updated } : x))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal mengubah status user')
+    }
   }
 
   async function handleDeleteUser() {
     if (!confirmDelete) return
-    await api.adminDeleteUser(confirmDelete.id)
-    setUsers((prev) => prev.filter((u) => u.id !== confirmDelete.id))
-    setConfirmDelete(null)
+    try {
+      await api.adminDeleteUser(confirmDelete.id)
+      setUsers((prev) => prev.filter((u) => u.id !== confirmDelete.id))
+      setConfirmDelete(null)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Gagal menghapus user')
+      setConfirmDelete(null)
+    }
   }
 
   if (authLoading || !user) {
@@ -178,6 +190,7 @@ export default function AdminPage() {
                 <thead>
                   <tr className="border-b border-gray-100">
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Nama</th>
+                    <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Username</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Email</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Role</th>
                     <th className="text-left px-4 py-3 text-xs font-medium text-gray-500">Notes</th>
@@ -201,6 +214,7 @@ export default function AdminPage() {
                           )}
                         </div>
                       </td>
+                      <td className="px-4 py-3 text-sm text-gray-500 font-mono">{u.username || <span className="text-gray-300">—</span>}</td>
                       <td className="px-4 py-3 text-sm text-gray-600">{u.email}</td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${
@@ -260,9 +274,9 @@ export default function AdminPage() {
 
       {/* Create User Modal */}
       {createOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setCreateOpen(false)} />
-          <div className="relative w-full sm:max-w-md bg-white sm:rounded-2xl rounded-t-2xl shadow-xl">
+          <div className="relative w-full sm:max-w-md bg-white rounded-2xl shadow-xl">
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <h2 className="text-base font-semibold">Tambah User</h2>
               <button type="button" onClick={() => setCreateOpen(false)} className="p-2 rounded-xl text-gray-400 hover:bg-gray-100" aria-label="Tutup">✕</button>
@@ -270,6 +284,7 @@ export default function AdminPage() {
             <div className="p-4 space-y-3">
               {createError && <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">{createError}</div>}
               {([{ key: 'name', label: 'Nama', type: 'text', placeholder: 'Nama lengkap' },
+                { key: 'username', label: 'Username (opsional)', type: 'text', placeholder: 'contoh: john_doe' },
                 { key: 'email', label: 'Email', type: 'email', placeholder: 'email@example.com' },
                 { key: 'password', label: 'Password', type: 'password', placeholder: 'Min. 8 karakter' }] as const).map((f) => (
                 <div key={f.key}>
@@ -307,9 +322,9 @@ export default function AdminPage() {
 
       {/* Edit User Modal */}
       {editUser && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setEditUser(null)} />
-          <div className="relative w-full sm:max-w-md bg-white sm:rounded-2xl rounded-t-2xl shadow-xl">
+          <div className="relative w-full sm:max-w-md bg-white rounded-2xl shadow-xl">
             <div className="flex items-center justify-between p-4 border-b border-gray-100">
               <h2 className="text-base font-semibold">Edit User: {editUser.name}</h2>
               <button type="button" onClick={() => setEditUser(null)} className="p-2 rounded-xl text-gray-400 hover:bg-gray-100" aria-label="Tutup">✕</button>
@@ -320,6 +335,11 @@ export default function AdminPage() {
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Nama</label>
                 <input type="text" value={editForm.name} onChange={(e) => setEditForm((p) => ({ ...p, name: e.target.value }))}
                   className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">Username <span className="text-gray-400">(untuk login, opsional)</span></label>
+                <input type="text" value={editForm.username} onChange={(e) => setEditForm((p) => ({ ...p, username: e.target.value.toLowerCase() }))}
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="contoh: john_doe" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Email</label>

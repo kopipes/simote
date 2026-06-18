@@ -1,14 +1,9 @@
 'use client'
 
 import { useState, useEffect, FormEvent } from 'react'
-import { X, Plus, Trash2 } from 'lucide-react'
+import { X } from 'lucide-react'
 import { Note, Category, CreateNoteInput } from '@/lib/api'
-
-const COLORS = [
-  '#6366f1', '#8b5cf6', '#ec4899', '#ef4444',
-  '#f97316', '#eab308', '#22c55e', '#14b8a6',
-  '#3b82f6', '#06b6d4', '#64748b', '#78716c',
-]
+import { VALID_NOTE_TYPES, NoteType } from '@/lib/constants'
 
 interface NoteModalProps {
   open: boolean
@@ -17,8 +12,6 @@ interface NoteModalProps {
   onClose: () => void
   onSave: (data: CreateNoteInput, id?: string) => Promise<void>
 }
-
-type NoteType = 'note' | 'ssh' | 'login' | 'api'
 
 const DEFAULT_FIELDS: Record<NoteType, { fieldKey: string; label: string; isSensitive: boolean; placeholder?: string; multiline?: boolean }[]> = {
   note: [
@@ -116,12 +109,12 @@ export function NoteModal({ open, note, categories, onClose, onSave }: NoteModal
   const fieldDefs = DEFAULT_FIELDS[type]
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative w-full sm:max-w-lg bg-white sm:rounded-2xl rounded-t-2xl shadow-xl max-h-[92vh] flex flex-col">
+      <div className="relative w-full sm:max-w-lg bg-white rounded-2xl shadow-xl max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
           <h2 className="text-base font-semibold text-gray-900">
@@ -184,7 +177,7 @@ export function NoteModal({ open, note, categories, onClose, onSave }: NoteModal
                   />
                 ) : (
                   <input
-                    type={field.isSensitive ? 'text' : 'text'}
+                    type={field.isSensitive ? 'password' : 'text'}
                     value={fieldValues[field.fieldKey] || ''}
                     onChange={(e) => setFieldValues((v) => ({ ...v, [field.fieldKey]: e.target.value }))}
                     className={`w-full px-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${

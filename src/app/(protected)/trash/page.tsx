@@ -24,6 +24,9 @@ export default function TrashPage() {
   const [confirmNote, setConfirmNote] = useState<Note | null>(null)
   const [confirmBulkOpen, setConfirmBulkOpen] = useState(false)
   const [bulkDeleting, setBulkDeleting] = useState(false)
+  const [bulkError, setBulkError] = useState('')
+  const [restoreError, setRestoreError] = useState('')
+  const [deleteError, setDeleteError] = useState('')
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/login')
@@ -69,32 +72,52 @@ export default function TrashPage() {
   }
 
   async function handleRestore(note: Note) {
-    await api.restoreNote(note.id)
-    setNotes((prev) => prev.filter((n) => n.id !== note.id))
-    setSelected((prev) => { const next = new Set(prev); next.delete(note.id); return next })
+    setRestoreError('')
+    try {
+      await api.restoreNote(note.id)
+      setNotes((prev) => prev.filter((n) => n.id !== note.id))
+      setSelected((prev) => { const next = new Set(prev); next.delete(note.id); return next })
+    } catch (e) {
+      setRestoreError(e instanceof Error ? e.message : 'Gagal merestore item')
+    }
   }
 
   function handleDelete(note: Note) {
+    setDeleteError('')
     setConfirmNote(note)
     setConfirmOpen(true)
   }
 
   async function confirmDelete() {
     if (!confirmNote) return
-    await api.deleteNote(confirmNote.id)
-    setNotes((prev) => prev.filter((n) => n.id !== confirmNote.id))
-    setSelected((prev) => { const next = new Set(prev); next.delete(confirmNote.id); return next })
-    setConfirmOpen(false)
-    setConfirmNote(null)
+    try {
+      await api.deleteNote(confirmNote.id)
+      setNotes((prev) => prev.filter((n) => n.id !== confirmNote.id))
+      setSelected((prev) => { const next = new Set(prev); next.delete(confirmNote.id); return next })
+      setConfirmOpen(false)
+      setConfirmNote(null)
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Gagal menghapus item')
+      setConfirmOpen(false)
+    }
   }
 
   async function handleBulkDelete() {
     setBulkDeleting(true)
+    setBulkError('')
     try {
-      await Promise.all(Array.from(selected).map((id) => api.deleteNote(id)))
-      setNotes((prev) => prev.filter((n) => !selected.has(n.id)))
-      setSelected(new Set())
-      setSelectMode(false)
+      const results = await Promise.allSettled(Array.from(selected).map((id) => api.deleteNote(id)))
+      const succeeded = Array.from(selected).filter((_, i) => results[i].status === 'fulfilled')
+      const failedCount = results.filter((r) => r.status === 'rejected').length
+      setNotes((prev) => prev.filter((n) => !succeeded.includes(n.id)))
+      setSelected(new Set(Array.from(selected).filter((id) => !succeeded.includes(id))))
+      if (failedCount > 0) {
+        setBulkError(`${failedCount} item gagal dihapus`)
+      } else {
+        setSelectMode(false)
+      }
+    } catch {
+      setBulkError('Gagal menghapus item')
     } finally {
       setBulkDeleting(false)
       setConfirmBulkOpen(false)
@@ -187,6 +210,13 @@ export default function TrashPage() {
       </header>
 
       <div className="max-w-4xl mx-auto p-4">
+        {/* Error banners */}
+        {(bulkError || restoreError || deleteError) && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 flex items-center justify-between">
+            <span>{bulkError || restoreError || deleteError}</span>
+            <button type="button" onClick={() => { setBulkError(''); setRestoreError(''); setDeleteError('') }} className="ml-3 text-red-400 hover:text-red-600">×</button>
+          </div>
+        )}
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />

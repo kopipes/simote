@@ -10,8 +10,15 @@ export async function apiFetch<T = unknown>(
   })
   // Some responses (e.g. 204 No Content) have no body
   const text = await res.text()
-  const data = text ? JSON.parse(text) : {}
-  if (!res.ok) throw new Error(data.error || 'Request failed')
+  let data: Record<string, unknown> = {}
+  if (text) {
+    try {
+      data = JSON.parse(text)
+    } catch {
+      if (!res.ok) throw new Error(`Server error (${res.status})`)
+    }
+  }
+  if (!res.ok) throw new Error((data.error as string) || `Request failed (${res.status})`)
   return data as T
 }
 
@@ -61,9 +68,9 @@ export const api = {
 
   // Admin
   adminGetUsers: () => apiFetch<{ users: AdminUser[] }>('/api/admin/users'),
-  adminCreateUser: (data: { name: string; email: string; password: string; role: string }) =>
+  adminCreateUser: (data: { name: string; username?: string; email: string; password: string; role: string }) =>
     apiFetch<{ user: AdminUser }>('/api/admin/users', { method: 'POST', body: JSON.stringify(data) }),
-  adminUpdateUser: (id: string, data: { name?: string; email?: string; password?: string; role?: string; isActive?: boolean }) =>
+  adminUpdateUser: (id: string, data: { name?: string; username?: string; email?: string; password?: string; role?: string; isActive?: boolean }) =>
     apiFetch<{ user: AdminUser }>(`/api/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(data) }),
   adminDeleteUser: (id: string) =>
     apiFetch(`/api/admin/users/${id}`, { method: 'DELETE' }),
@@ -79,6 +86,7 @@ export interface User {
 }
 
 export interface AdminUser extends User {
+  username: string | null
   createdAt: string
   _count: { notes: number }
 }

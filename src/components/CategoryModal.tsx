@@ -3,12 +3,7 @@
 import { useState, useEffect, FormEvent } from 'react'
 import { X } from 'lucide-react'
 import { Category } from '@/lib/api'
-
-const COLORS = [
-  '#6366f1', '#8b5cf6', '#ec4899', '#ef4444',
-  '#f97316', '#eab308', '#22c55e', '#14b8a6',
-  '#3b82f6', '#06b6d4', '#64748b', '#78716c',
-]
+import { CATEGORY_COLORS } from '@/lib/constants'
 
 interface CategoryModalProps {
   open: boolean
@@ -19,7 +14,7 @@ interface CategoryModalProps {
 
 export function CategoryModal({ open, category, onClose, onSave }: CategoryModalProps) {
   const [name, setName] = useState('')
-  const [color, setColor] = useState(COLORS[0])
+  const [color, setColor] = useState(CATEGORY_COLORS[0])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -30,7 +25,7 @@ export function CategoryModal({ open, category, onClose, onSave }: CategoryModal
       setColor(category.colorHex)
     } else {
       setName('')
-      setColor(COLORS[0])
+      setColor(CATEGORY_COLORS[0])
     }
     setError('')
   }, [open, category])
@@ -52,9 +47,9 @@ export function CategoryModal({ open, category, onClose, onSave }: CategoryModal
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full sm:max-w-sm bg-white sm:rounded-2xl rounded-t-2xl shadow-xl">
+      <div className="relative w-full sm:max-w-sm bg-white rounded-2xl shadow-xl">
         <div className="flex items-center justify-between p-4 border-b border-gray-100">
           <h2 className="text-base font-semibold text-gray-900">
             {category ? 'Edit Kategori' : 'Kategori Baru'}
@@ -78,7 +73,7 @@ export function CategoryModal({ open, category, onClose, onSave }: CategoryModal
           <div>
             <label className="block text-xs font-medium text-gray-500 mb-2">Warna</label>
             <div className="flex flex-wrap gap-2">
-              {COLORS.map((c) => (
+              {CATEGORY_COLORS.map((c) => (
                 <button
                   key={c}
                   type="button"

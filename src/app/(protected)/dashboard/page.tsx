@@ -37,6 +37,13 @@ export default function DashboardPage() {
 
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Cleanup pending search timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeout.current) clearTimeout(searchTimeout.current)
+    }
+  }, [])
+
   // Redirect if not logged in
   useEffect(() => {
     if (!authLoading && !user) router.push('/login')

@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { MoreVertical, Terminal, KeyRound, FileText, Trash2, RotateCcw, Zap } from 'lucide-react'
+import { MoreVertical, Trash2, RotateCcw } from 'lucide-react'
 import { Note } from '@/lib/api'
 import { SensitiveField, PlainField } from './SensitiveField'
 import { CopyButton } from './CopyButton'
 import { NoteDetailModal } from './NoteDetailModal'
+import { NOTE_TYPE_CONFIG, getNoteField } from '@/lib/constants'
 
 interface NoteCardProps {
   note: Note
@@ -16,22 +17,17 @@ interface NoteCardProps {
   isTrashed?: boolean
 }
 
-const TYPE_CONFIG = {
-  note: { label: 'Catatan', icon: FileText, color: 'bg-blue-100 text-blue-600' },
-  ssh: { label: 'SSH', icon: Terminal, color: 'bg-orange-100 text-orange-600' },
-  login: { label: 'Login', icon: KeyRound, color: 'bg-purple-100 text-purple-600' },
-  api: { label: 'API', icon: Zap, color: 'bg-teal-100 text-teal-600' },
-}
+
 
 export function NoteCard({ note, onEdit, onDelete, onToggleStatus, onRestore, isTrashed }: NoteCardProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
 
-  const config = TYPE_CONFIG[note.type] || TYPE_CONFIG.note
+  const config = NOTE_TYPE_CONFIG[note.type] || NOTE_TYPE_CONFIG.note
   const Icon = config.icon
   const isInvalid = note.status === 'invalid'
 
-  const getField = (key: string) => note.fields.find((f) => f.fieldKey === key)?.fieldValue || ''
+  const getField = (key: string) => getNoteField(note.fields, key)
 
   // Calculate days remaining for trashed items
   const daysRemaining = note.trashedItem
