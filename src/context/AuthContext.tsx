@@ -4,8 +4,9 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { api, User } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 
-const INACTIVITY_TIMEOUT = 15 * 60 * 1000 // 15 minutes in ms
-const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll', 'click']
+const INACTIVITY_TIMEOUT = 15 * 60 * 1000 // 15 minutes
+const THROTTLE_DELAY = 2000               // 2 seconds throttle
+const ACTIVITY_EVENTS = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll', 'click'] as const
 
 interface AuthContextValue {
   user: User | null
@@ -31,7 +32,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+
+  // Use refs to avoid stale closures and unnecessary effect re-runs
   const inactivityTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const throttleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const throttleActive = useRef(false)
+  const routerRef = useRef(router)
+  const userRef = useRef(user)
+
+  // Keep refs in sync with latest values without causing effect re-runs
+  useEffect(() => { routerRef.current = router }, [router])
+  useEffect(() => { userRef.current = user }, [user])
 
   const refresh = useCallback(async () => {
     try {
@@ -46,48 +57,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     refresh().finally(() => setLoading(false))
   }, [refresh])
 
-  // Throttle: ignore activity events for 2 seconds after first one
-  const throttleRef = useRef(false)
+  // Stable ref-based reset — never changes identity, so no event listener churn
+  const resetInactivityTimer = useRef(() => {
+    // Throttle: ignore if within 2 seconds of last reset
+    if (throttleActive.current) return
+    throttleActive.current = true
 
-  // Inactivity auto-logout
-  const resetInactivityTimer = useCallback(() => {
-    // Throttle: skip if already handled within last 2 seconds
-    if (throttleRef.current) return
-    throttleRef.current = true
-    setTimeout(() => { throttleRef.current = false }, 2000)
+    if (throttleTimer.current) clearTimeout(throttleTimer.current)
+    throttleTimer.current = setTimeout(() => {
+      throttleActive.current = false
+    }, THROTTLE_DELAY)
 
+    // Reset the inactivity countdown
     if (inactivityTimer.current) clearTimeout(inactivityTimer.current)
     inactivityTimer.current = setTimeout(async () => {
+      if (!userRef.current) return
       try {
         await api.logout()
       } catch {}
       setUser(null)
-      router.push('/login')
+      routerRef.current.push('/login')
     }, INACTIVITY_TIMEOUT)
-  }, [router])
+  })
 
   useEffect(() => {
     if (!user) {
-      // Clear timer when logged out
+      // Clear timers when not logged in
       if (inactivityTimer.current) clearTimeout(inactivityTimer.current)
+      if (throttleTimer.current) clearTimeout(throttleTimer.current)
+      throttleActive.current = false
       return
     }
 
-    // Start timer on login
-    resetInactivityTimer()
+    const handler = resetInactivityTimer.current
 
-    // Listen for activity events
+    // Start the initial countdown
+    handler()
+
+    // Attach activity listeners once
     ACTIVITY_EVENTS.forEach((event) =>
-      window.addEventListener(event, resetInactivityTimer, { passive: true })
+      window.addEventListener(event, handler, { passive: true })
     )
 
     return () => {
       if (inactivityTimer.current) clearTimeout(inactivityTimer.current)
+      if (throttleTimer.current) clearTimeout(throttleTimer.current)
+      throttleActive.current = false
       ACTIVITY_EVENTS.forEach((event) =>
-        window.removeEventListener(event, resetInactivityTimer)
+        window.removeEventListener(event, handler)
       )
     }
-  }, [user, resetInactivityTimer])
+  }, [user]) // only re-run when login state changes
 
   const login = async (email: string, password: string) => {
     const { user } = await api.login(email, password)
@@ -101,6 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     if (inactivityTimer.current) clearTimeout(inactivityTimer.current)
+    if (throttleTimer.current) clearTimeout(throttleTimer.current)
     await api.logout()
     setUser(null)
   }
